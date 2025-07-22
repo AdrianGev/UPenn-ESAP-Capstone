@@ -5,8 +5,8 @@ import os
 from chess_board import Board
 from chess_gui import ChessGUI
 from chess_piece import Color
-from chess_position import Position, Move
-from engine_wrapper import EngineWrapper
+# from chess_position import Position, Move
+# from engine_wrapper import EngineWrapper
 
 def main():
     # init the gooey
@@ -19,7 +19,7 @@ def main():
     board = Board()  # Standard starting position
     
     # init the engine
-    engine = EngineWrapper(depth=4)  # Search 4 moves ahead
+    # # Search 4 moves ahead
     
     # game state tracking
     game_over = False

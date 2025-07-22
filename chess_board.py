@@ -1,5 +1,5 @@
 from chess_piece import Piece, PieceType, Color
-from chess_position import Position, Move
+# from chess_position import Position, Move
 
 class Board:
     def __init__(self, fen=None):
@@ -9,7 +9,7 @@ class Board:
         self.white_can_castle_queenside = True
         self.black_can_castle_kingside = True
         self.black_can_castle_queenside = True
-        self.en_passant_target = Position(-1, -1)
+        # self.en_passant_target = Position(-1, -1)
         self.half_move_clock = 0
         self.full_move_number = 1
         
@@ -63,8 +63,8 @@ class Board:
         self.black_can_castle_queenside = 'q' in parts[2]
         
         # Parse en passant target
-        if parts[3] != '-':
-            self.en_passant_target = Position.from_algebraic(parts[3])
+        # if parts[3] != '-':
+        #     self.en_passant_target = Position.from_algebraic(parts[3])
         
         # Parse half-move clock and full move number
         self.half_move_clock = int(parts[4])
@@ -127,7 +127,7 @@ class Board:
         fen += " " + (castling if castling else "-")
         
         # En passant target
-        fen += " " + (self.en_passant_target.to_algebraic() if self.en_passant_target.is_valid() else "-")
+        # fen += " " + (self.en_passant_target.to_algebraic() if self.en_passant_target.is_valid() else "-")
         
         # Half-move clock and full move number
         fen += f" {self.half_move_clock} {self.full_move_number}"

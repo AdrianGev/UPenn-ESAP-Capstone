@@ -1,7 +1,7 @@
-from chess_piece import Piece, PieceType, Color
-# from chess_position import Position, Move
 
-class MoveGenerator:
+from chess_position import Position, Move
+
+class Movement:
     def __init__(self, board):
         self.board = board
     
@@ -32,24 +32,20 @@ class MoveGenerator:
         
         return moves
     
-    def generate_piece_moves(self, pos):
+    def generate_piece_moves(self, pos, character):
         # generate all pseudolegal moves for a specific piece
-        piece = self.board.get_piece(pos)
         
-        if piece.is_empty():
+        
+        if character == ".":
             return []
         
-        if piece.piece_type == PieceType.PAWN:
+        if character == "p" or character == "P":
             return self.generate_pawn_moves(pos)
-        elif piece.piece_type == PieceType.KNIGHT:
-            return self.generate_knight_moves(pos)
-        elif piece.piece_type == PieceType.BISHOP:
+        elif character == "b" or character == "B":
             return self.generate_bishop_moves(pos)
-        elif piece.piece_type == PieceType.ROOK:
+        elif character == "r" or character == "R":
             return self.generate_rook_moves(pos)
-        elif piece.piece_type == PieceType.QUEEN:
-            return self.generate_queen_moves(pos)
-        elif piece.piece_type == PieceType.KING:
+        elif character == "k" or character == "K":
             return self.generate_king_moves(pos)
         
         return []
@@ -57,13 +53,13 @@ class MoveGenerator:
     def generate_pawn_moves(self, pos):
         # generate all pseudolegal pawn moves
         moves = []
-        piece = self.board.get_piece(pos)
+        #piece = self.board.get_piece(pos)
         
-        if piece.is_empty() or piece.piece_type != PieceType.PAWN:
-            return moves
+        # if piece.is_empty() or piece.piece_type != PieceType.PAWN:
+        #     return moves
         
         # direction of movement (1 for white, -1 for black)
-        direction = 1 if piece.color == Color.WHITE else -1 # wow so compact
+        # direction = 1 if piece.color == Color.WHITE else -1 # wow so compact
         
         # single step forward
         new_pos = Position(pos.file, pos.rank + direction)

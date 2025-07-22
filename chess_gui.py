@@ -2,7 +2,7 @@ import pygame
 import os
 import math
 from chess_piece import Piece, PieceType, Color
-from chess_position import Position, Move
+# from chess_position import Position, Move
 from chess_board import Board
 from chess_move_generator import MoveGenerator
 
