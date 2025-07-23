@@ -23,7 +23,12 @@ class Piece:
         # Pawns
         if self.name == "P":
             if self.row > 0:
+                # Forward move
                 pos_moves.append((self.row - 1, self.col))
+                # Two square move from starting position
+                if self.row == 6:  # White pawns start at row 6
+                    pos_moves.append((self.row - 2, self.col))
+                # Diagonal moves (for potential captures, will be filtered later)
                 if self.col > 0:
                     pos_moves.append((self.row - 1, self.col - 1))
                 if self.col < 7:
@@ -32,7 +37,12 @@ class Piece:
 
         elif self.name == "p":
             if self.row < 7:
+                # Forward move
                 pos_moves.append((self.row + 1, self.col))
+                # Two square move from starting position
+                if self.row == 1:  # Black pawns start at row 1
+                    pos_moves.append((self.row + 2, self.col))
+                # Diagonal moves (for potential captures, will be filtered later)
                 if self.col > 0:
                     pos_moves.append((self.row + 1, self.col - 1))
                 if self.col < 7:
