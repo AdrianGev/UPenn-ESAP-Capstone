@@ -2,7 +2,7 @@ import pygame
 import time
 import sys
 import os
-from esap_Board import Board
+from Esap_Board import Board
 # from chess_gui import ChessGUI
 from esap_piece import *
 from chess_utils import blocked_from, get_blocked_directions
