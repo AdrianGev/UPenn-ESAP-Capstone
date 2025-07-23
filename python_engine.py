@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 
 class Engine:
-    def __init__(self, max_depth=3):
+    def __init__(self, max_depth=5):
         self.max_depth = max_depth
         self.nodes_searched = 0
         self.start_time = 0
