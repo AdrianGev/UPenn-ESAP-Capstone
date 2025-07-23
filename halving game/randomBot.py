@@ -1,7 +1,7 @@
 import random
 def choose_random():
-  num = random.randint(1,3)
-  if num == 1:
+  num = random.randint(1,2)
+  if num > 1:
     return "divide"
   else:
     return "minus"
