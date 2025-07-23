@@ -7,6 +7,8 @@ from Esap_Board import Board
 from esap_piece import *
 from chess_utils import blocked_from, get_blocked_directions
 from chess_check_utils import is_in_check, filter_moves_for_check, is_square_attacked
+from python_engine import Engine, Color
+from python_evaluator import Evaluator
 
 
 WIDTH, HEIGHT = 640, 640  # window size
@@ -57,6 +59,247 @@ valid_moves = []
 # Variables to track check status
 in_check = False
 check_indicator_color = (255, 255, 0, 150)  # Yellow with transparency
+
+# Initialize chess engine for black moves
+engine = Engine(max_depth=3)  # Adjust depth as needed for performance vs strength
+
+# Function to convert our board representation to the format expected by the engine
+def convert_board_for_engine():
+    # Create a board object that the engine can understand
+    class EngineBoard:
+        def __init__(self):
+            self.board = [[None for _ in range(8)] for _ in range(8)]
+            # Map our pieces to the board
+            for piece in pieces:
+                self.board[piece.row][piece.col] = piece.name
+        
+        def get_side_to_move(self):
+            return Color.BLACK  # We want the engine to move as Black
+        
+        def generate_legal_moves(self):
+            # This would generate all legal moves for the current position
+            # For simplicity, we'll just create Move objects for all available squares
+            # that black pieces can move to
+            moves = []
+            
+            # Check if black king is in check
+            black_in_check = is_in_check('black', pieces)
+            
+            for piece in pieces:
+                if piece.name.islower():  # Black pieces are lowercase
+                    possible_moves = []
+                    
+                    # Use our existing move generation logic
+                    if piece.name.lower() in ['b', 'r', 'q']:
+                        directions = []
+                        if piece.name.lower() in ['b', 'q']:  # Bishop or Queen
+                            directions.extend([(-1, -1), (-1, 1), (1, -1), (1, 1)])  # Diagonals
+                        if piece.name.lower() in ['r', 'q']:  # Rook or Queen
+                            directions.extend([(-1, 0), (1, 0), (0, -1), (0, 1)])  # Horizontals and verticals
+                            
+                        for dr, dc in directions:
+                            for i in range(1, 8):
+                                new_row = piece.row + dr * i
+                                new_col = piece.col + dc * i
+                                
+                                if 0 <= new_row < 8 and 0 <= new_col < 8:
+                                    # Check if there's a piece at this position
+                                    piece_at_pos = None
+                                    for other_piece in pieces:
+                                        if other_piece.row == new_row and other_piece.col == new_col:
+                                            piece_at_pos = other_piece
+                                            break
+                                    
+                                    if piece_at_pos:
+                                        # If it's an opponent's piece (white/uppercase), we can capture it
+                                        if piece_at_pos.name.isupper():
+                                            possible_moves.append((new_row, new_col))
+                                        # Stop in this direction regardless
+                                        break
+                                    else:
+                                        # Empty square, add as valid move
+                                        possible_moves.append((new_row, new_col))
+                                else:
+                                    # Off the board, stop looking in this direction
+                                    break
+                    else:
+                        # For non-sliding pieces (pawns, kings, knights)
+                        raw_moves = piece.get_pos_moves()
+                        possible_moves = []
+                        
+                        # Filter out moves that would capture own pieces
+                        for move_row, move_col in raw_moves:
+                            # Check if there's a piece at this position
+                            piece_at_pos = None
+                            for other_piece in pieces:
+                                if other_piece.row == move_row and other_piece.col == move_col:
+                                    piece_at_pos = other_piece
+                                    break
+                            
+                            # Only add valid moves (empty squares or opponent's pieces)
+                            if piece_at_pos is None or piece_at_pos.name.isupper():  # Empty or white piece
+                                possible_moves.append((move_row, move_col))
+                        
+                    # Special handling for the king - king can't move into check
+                    if piece.name.lower() == 'k':
+                        # Filter out moves that would put the king in check
+                        safe_moves = []
+                        for move_row, move_col in possible_moves:
+                            # Temporarily move the king to see if it would be in check
+                            original_row, original_col = piece.row, piece.col
+                            piece.row, piece.col = move_row, move_col
+                            
+                            # Check if the king would be in check in this position
+                            would_be_in_check = is_square_attacked(move_row, move_col, 'black', pieces)
+                            
+                            # Restore the king's position
+                            piece.row, piece.col = original_row, original_col
+                            
+                            # Only add the move if it wouldn't put the king in check
+                            if not would_be_in_check:
+                                safe_moves.append((move_row, move_col))
+                        
+                        # Replace possible moves with safe moves
+                        possible_moves = safe_moves
+                    
+                    # Filter all moves to ensure they get the king out of check if it's in check
+                    if black_in_check:
+                        # If king is in check, we need to ensure the move resolves the check
+                        filtered_moves = []
+                        for move_row, move_col in possible_moves:
+                            # Temporarily make the move
+                            original_row, original_col = piece.row, piece.col
+                            
+                            # Check if there's a piece to capture at the target position
+                            piece_to_capture = None
+                            for other_piece in pieces:
+                                if other_piece.row == move_row and other_piece.col == move_col:
+                                    piece_to_capture = other_piece
+                                    break
+                            
+                            # Temporarily remove captured piece if any
+                            if piece_to_capture:
+                                pieces.remove(piece_to_capture)
+                            
+                            # Make the move temporarily
+                            piece.row, piece.col = move_row, move_col
+                            
+                            # Check if still in check after the move
+                            still_in_check = is_in_check('black', pieces)
+                            
+                            # Restore original position and pieces
+                            piece.row, piece.col = original_row, original_col
+                            if piece_to_capture:
+                                pieces.append(piece_to_capture)
+                            
+                            # Only add moves that resolve the check
+                            if not still_in_check:
+                                filtered_moves.append((move_row, move_col))
+                        
+                        possible_moves = filtered_moves
+                    
+                    # Create Move objects for each possible move
+                    for move_row, move_col in possible_moves:
+                        # Create a Move object
+                        class Move:
+                            def __init__(self, from_pos, to_pos):
+                                self.from_row, self.from_col = from_pos
+                                self.to_row, self.to_col = to_pos
+                                
+                            def to_algebraic(self):
+                                # Convert to algebraic notation like 'e2e4'
+                                files = 'abcdefgh'
+                                return f"{files[self.from_col]}{8-self.from_row}{files[self.to_col]}{8-self.to_row}"
+                        
+                        move = Move((piece.row, piece.col), (move_row, move_col))
+                        moves.append(move)
+            
+            return moves
+        
+        def copy(self):
+            # Create a copy of the board for move testing
+            new_board = EngineBoard()
+            new_board.board = [row[:] for row in self.board]
+            return new_board
+        
+        def make_move(self, move):
+            # Update the board with the move
+            from_row, from_col = move.from_row, move.from_col
+            to_row, to_col = move.to_row, move.to_col
+            
+            # Move the piece on the board
+            self.board[to_row][to_col] = self.board[from_row][from_col]
+            self.board[from_row][from_col] = None
+        
+        def is_in_check(self):
+            # Simplified check detection
+            return False
+        
+        def get_pieces(self):
+            # Return a dictionary of pieces by type
+            result = {}
+            for row in range(8):
+                for col in range(8):
+                    piece = self.board[row][col]
+                    if piece:
+                        if piece not in result:
+                            result[piece] = []
+                        result[piece].append((row, col))
+            return result
+        
+        def get_king_position(self, color):
+            # Find king position
+            king_char = 'k' if color == Color.BLACK else 'K'
+            for row in range(8):
+                for col in range(8):
+                    if self.board[row][col] == king_char:
+                        return (row, col)
+            return None
+        
+        def get_piece_positions(self, piece_type):
+            # Get all positions of a specific piece type
+            positions = []
+            for row in range(8):
+                for col in range(8):
+                    if self.board[row][col] == piece_type:
+                        positions.append((row, col))
+            return positions
+        
+        def get_piece_at(self, row, col):
+            # Get piece at a specific position
+            if 0 <= row < 8 and 0 <= col < 8:
+                return self.board[row][col]
+            return None
+    
+    return EngineBoard()
+
+# Function to make black move using the engine
+def make_black_move():
+    # Convert our board to engine format
+    engine_board = convert_board_for_engine()
+    
+    # Get the best move from the engine
+    best_move = engine.get_best_move(engine_board)
+    
+    if best_move:
+        # Find the piece to move
+        for piece in pieces:
+            if piece.row == best_move.from_row and piece.col == best_move.from_col:
+                # Check if there's a piece to capture at the target position
+                piece_to_capture = None
+                for other_piece in pieces:
+                    if other_piece.row == best_move.to_row and other_piece.col == best_move.to_col:
+                        piece_to_capture = other_piece
+                        break
+                
+                # If there's a piece to capture, remove it
+                if piece_to_capture:
+                    pieces.remove(piece_to_capture)
+                
+                # Make the move
+                piece.move(best_move.to_row, best_move.to_col)
+                print(f"Black moved {piece.name} to {best_move.to_row}, {best_move.to_col}")
+                break
 
 running = True
 while running:
@@ -132,6 +375,11 @@ while running:
                 # Clear selection after moving
                 selected_piece = None
                 valid_moves = []
+                
+                # Add a small delay to ensure UI updates before black moves
+                pygame.time.delay(100)
+                # Make black's move
+                make_black_move()
             # otherwise handle piece selection normally
             elif clicked_on_piece:
                 # Only allow selecting white pieces (uppercase)
@@ -317,6 +565,11 @@ while running:
                     # Clear selection after moving
                     selected_piece = None
                     valid_moves = []
+                    
+                    # After white moves, make a move for black using the engine
+                    # Add a small delay to ensure UI updates before black moves
+                    pygame.time.delay(100)
+                    make_black_move()
                 else:
                     # If clicked on an invalid position, clear selection
                     selected_piece = None
