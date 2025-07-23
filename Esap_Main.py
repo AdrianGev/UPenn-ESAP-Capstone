@@ -609,26 +609,37 @@ def draw_promotion_ui():
         
         # Create a semi-transparent overlay for the whole board
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 120))  # Black with 50% transparency
+        overlay.fill((0, 0, 0, 180))  # Black with 70% transparency
         screen.blit(overlay, (0, 0))
         
         # Draw the promotion selection box
         box_width = 320  # 4 pieces * 80px
-        box_height = 80
+        box_height = 100
         box_x = (WIDTH - box_width) // 2
-        box_y = HEIGHT // 2 - 40
+        box_y = HEIGHT // 2 - 50
         
-        # Draw the box background
-        pygame.draw.rect(screen, (50, 50, 50), (box_x, box_y, box_width, box_height))
-        pygame.draw.rect(screen, GOLD, (box_x, box_y, box_width, box_height), 3)
+        # Draw the box background with rounded corners
+        pygame.draw.rect(screen, (40, 40, 40), (box_x, box_y, box_width, box_height), border_radius=10)
+        pygame.draw.rect(screen, GOLD, (box_x, box_y, box_width, box_height), 3, border_radius=10)
         
-        # Draw the promotion options
+        # Draw the promotion options - scale images to fit better
         piece_options = promotion_pieces['white']
         for i, (piece_type, img) in enumerate(piece_options.items()):
-            screen.blit(img, (box_x + i*80 + 10, box_y + 10))
+            # Create smaller version of the piece image
+            scaled_img = pygame.transform.scale(img, (60, 60))
+            piece_x = box_x + i*80 + 10
+            piece_y = box_y + 20
+            screen.blit(scaled_img, (piece_x, piece_y))
+            
+            # Add piece label
+            font = pygame.font.SysFont('Arial', 16)
+            piece_names = {'Q': 'Queen', 'R': 'Rook', 'B': 'Bishop', 'N': 'Knight'}
+            label = font.render(piece_names[piece_type], True, (200, 200, 200))
+            label_rect = label.get_rect(center=(piece_x + 30, box_y + 85))
+            screen.blit(label, label_rect)
         
         # Add a prompt message
-        font = pygame.font.SysFont('Arial', 24)
+        font = pygame.font.SysFont('Arial', 24, bold=True)
         text = font.render("Choose a piece for promotion", True, (255, 255, 255))
         text_rect = text.get_rect(center=(WIDTH//2, box_y - 20))
         screen.blit(text, text_rect)
