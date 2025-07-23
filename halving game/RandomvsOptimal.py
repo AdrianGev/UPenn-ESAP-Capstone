@@ -107,10 +107,10 @@ print("avg turns pergame for opt is " , opt_turns/100)
 labels = ['Random bot wins', 'Optimal bot wins']
 values = [random_wins, optimal_wins]
 
-# Make the pie chart
-# plt.pie(values, labels=labels, autopct='%1.1f%%', startangle=90)
-# plt.title("random bot wins vs optimal bot wins")
-# plt.show()
+#Make the pie chart
+plt.pie(values, labels=labels, autopct='%1.1f%%', startangle=90)
+plt.title("random bot wins vs optimal bot wins")
+plt.show()
 
 
 list_of_rand = []
