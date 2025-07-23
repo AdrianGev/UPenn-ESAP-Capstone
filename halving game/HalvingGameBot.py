@@ -17,7 +17,7 @@ class game:
   def __init__(self):
     self.begin = random.randint(1, 50)
     self.p1turn = True
-##################################
+
   def isEnd(self, state):
     if state == 0:
       if self.p1turn:
@@ -27,7 +27,7 @@ class game:
       return True
     else:
       return False
-#############################
+
   def actions(self, state, action):
     if action == "divide":
       state = state // 2
