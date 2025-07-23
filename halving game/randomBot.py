@@ -1,18 +1,11 @@
 import random
-
-
-def pickOptimal(num, mx):
-  if num == 0:
-    if mx == 0:
-      return 1000
-    else:
-      return -1000
-    
-  if mx:
-    return max(pickOptimal(num - 1, not mx), pickOptimal(num // 2, not mx))
+def choose_random():
+  num = random.randint(1,2)
+  if num > 1:
+    return "divide"
   else:
-    return min(pickOptimal(num - 1, not mx), pickOptimal(num // 2, not mx))
-    
+    return "minus"
+  
 class game:
   def __init__(self):
     self.begin = random.randint(1, 50)
@@ -52,12 +45,8 @@ class game:
         # if pickOptimal(state, False):
         #   current_bot_winning = True
         # print(current_bot_winning)
-        minus_val = pickOptimal(state - 1, True)
-        divide_val = pickOptimal(state // 2, True)
-        if divide_val <= minus_val:
-          ins = "divide"
-        else:
-          ins = "minus"
+        move = choose_random()
+        ins = move
         print("Bot chooses", ins)
 
       state = self.actions(state, ins)
