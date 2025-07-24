@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 CHECKMATE_VALUE = 100000
 STALEMATE_VALUE = 0
-SEARCH_DEPTH = 0 # Very important value! Makes the bot stronger or weaker
+SEARCH_DEPTH = 3 # Very important value! Makes the bot stronger or weaker
 # Depth of 4-5 recommended for strongest results, depth of 2-3 recommended for fast (still good) games
 best_move_found = None # By increasing or decreasing how far it sees ahead
 positions_evaluated = 0
