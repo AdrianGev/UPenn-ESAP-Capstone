@@ -2,32 +2,36 @@ from __future__ import annotations
 from typing import List, Tuple, Dict, Set, Optional
 from abc import ABC, abstractmethod
 
-from ESAP_chess_core import Position, PieceColor, PieceType, EMPTY_SQUARE, ChessBoard
+from ESAP_chess_core import BoardCoordinate, PieceColor, PieceType, NULL_SQUARE, ChessMatrix
 from ESAP_chess_moves import Move
 
-# Direction constants
+# direction constants
 DIRECTIONS = {
-    "straight": [(0, 1), (1, 0), (0, -1), (-1, 0)],  # Rook directions
-    "diagonal": [(1, 1), (1, -1), (-1, -1), (-1, 1)],  # Bishop directions
-    "knight": [(-2, -1), (-1, -2), (1, -2), (2, -1), (2, 1), (1, 2), (-1, 2), (-2, 1)],  # Knight moves
-    "king": [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1)]  # King moves
+    "straight": [(0, 1), (1, 0), (0, -1), (-1, 0)],  # rook directions
+    "diagonal": [(1, 1), (1, -1), (-1, -1), (-1, 1)],  # bishop directions
+    "knight": [(-2, -1), (-1, -2), (1, -2), (2, -1), (2, 1), (1, 2), (-1, 2), (-2, 1)],  # knight moves
+    "king": [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1)]  # king moves
 }
 
+# alphabet soup
+# is yummy
+# (it says ABC that was the joke) 
+
 class PieceMovementStrategy(ABC):
-    """Abstract base class for piece movement strategies"""
+    """abstract base class for piece movement strategies"""
     
     @abstractmethod
     def get_moves(self, position: Position, board: ChessBoard, pins: List, is_white_turn: bool) -> List[Move]:
-        """Get all possible moves for a piece at the given position"""
+        """get all possible moves for a piece at the given position"""
         pass
 
 class PawnMovementStrategy(PieceMovementStrategy):
     def get_moves(self, position: Position, board: ChessBoard, pins: List, is_white_turn: bool, enpassant_target: Optional[Position] = None, white_king_position: Optional[Position] = None, black_king_position: Optional[Position] = None) -> List[Move]:
-        """Get all possible moves for a pawn"""
+        """get all possible moves for a pawn"""
         moves = []
         r, c = position.row, position.col
         
-        # Check if pawn is pinned
+        # check if pawn is pinned
         piece_pinned = False
         pin_direction = ()
         for i in range(len(pins) - 1, -1, -1):
@@ -36,24 +40,24 @@ class PawnMovementStrategy(PieceMovementStrategy):
                 pin_direction = (pins[i][2], pins[i][3])
                 break
         
-        # Get king position for en passant checks
+        # get king position for en passant checks
         if is_white_turn and white_king_position:
             king_row, king_col = white_king_position.row, white_king_position.col
         elif not is_white_turn and black_king_position:
             king_row, king_col = black_king_position.row, black_king_position.col
         else:
-            # Default values if king positions aren't provided
+            # default values if king positions aren't provided
             king_row, king_col = (7, 4) if is_white_turn else (0, 4)
         
-        if is_white_turn:  # White pawn moves
-            # Forward moves
-            if board[r-1][c] == EMPTY_SQUARE:
+        if is_white_turn:  # white pawn moves
+            # forward moves
+            if board[r-1][c] == NULL_SQUARE:
                 if not piece_pinned or pin_direction == (-1, 0):
                     moves.append(Move((r, c), (r-1, c), board))
-                    if r == 6 and board[r-2][c] == EMPTY_SQUARE:
+                    if r == 6 and board[r-2][c] == NULL_SQUARE:
                         moves.append(Move((r, c), (r-2, c), board))
             
-            # Captures to the left
+            # captures to the left (this is the simplest way i could implement this it looks awful but idc it works so DONT touch this code)
             if c-1 >= 0:
                 if board[r-1][c-1][0] == "b":
                     if not piece_pinned or pin_direction == (-1, -1):
@@ -68,18 +72,18 @@ class PawnMovementStrategy(PieceMovementStrategy):
                             inside_range = range(king_col - 1, c, -1)
                             outside_range = range(c-2, -1, -1)
                         for i in inside_range:
-                            if board[r][i] != EMPTY_SQUARE:
+                            if board[r][i] != NULL_SQUARE:
                                 blocking_piece = True
                         for i in outside_range:
                             square = board[r][i]
                             if square[0] == 'b' and (square[1] == 'R' or square[1] == 'Q'):
                                 attacking_piece = True
-                            elif square != EMPTY_SQUARE:
+                            elif square != NULL_SQUARE:
                                 blocking_piece = True
                     if not attacking_piece or blocking_piece:
                         moves.append(Move((r, c), (r-1, c-1), board, is_enpassant_move=True))
             
-            # Captures to the right
+            # captures to the right
             if c+1 <= 7:
                 if board[r-1][c+1][0] == "b":
                     if not piece_pinned or pin_direction == (-1, 1):
@@ -94,25 +98,26 @@ class PawnMovementStrategy(PieceMovementStrategy):
                             inside_range = range(king_col - 1, c+1, -1)
                             outside_range = range(c-1, -1, -1)
                         for i in inside_range:
-                            if board[r][i] != EMPTY_SQUARE:
+                            if board[r][i] != NULL_SQUARE:
                                 blocking_piece = True
                         for i in outside_range:
                             square = board[r][i]
                             if square[0] == 'b' and (square[1] == 'R' or square[1] == 'Q'):
                                 attacking_piece = True
-                            elif square != EMPTY_SQUARE:
+                            elif square != NULL_SQUARE:
                                 blocking_piece = True
                     if not attacking_piece or blocking_piece:
                         moves.append(Move((r, c), (r-1, c+1), board, is_enpassant_move=True))
-        else:  # Black pawn moves
-            # Forward moves
-            if board[r+1][c] == EMPTY_SQUARE:
+        else:  # black pawn moves
+            # forward moves
+            if board[r+1][c] == NULL_SQUARE:
                 if not piece_pinned or pin_direction == (1, 0):
                     moves.append(Move((r, c), (r+1, c), board))
-                    if r == 1 and board[r+2][c] == EMPTY_SQUARE:
+                    if r == 1 and board[r+2][c] == NULL_SQUARE:
                         moves.append(Move((r, c), (r+2, c), board))
             
-            # Captures to the left
+            # captures to the left 
+            # this is the simplest way i could implement this it looks awful but idc it works so DONT touch this code
             if c-1 >= 0:
                 if board[r+1][c-1][0] == "w":
                     if not piece_pinned or pin_direction == (1, -1):
@@ -127,18 +132,18 @@ class PawnMovementStrategy(PieceMovementStrategy):
                             inside_range = range(king_col - 1, c, -1)
                             outside_range = range(c-2, -1, -1)
                         for i in inside_range:
-                            if board[r][i] != EMPTY_SQUARE:
+                            if board[r][i] != NULL_SQUARE:
                                 blocking_piece = True
                         for i in outside_range:
                             square = board[r][i]
                             if square[0] == 'w' and (square[1] == 'R' or square[1] == 'Q'):
                                 attacking_piece = True
-                            elif square != EMPTY_SQUARE:
+                            elif square != NULL_SQUARE:
                                 blocking_piece = True
                     if not attacking_piece or blocking_piece:
                         moves.append(Move((r, c), (r+1, c-1), board, is_enpassant_move=True))
             
-            # Captures to the right
+            # captures to the right
             if c+1 <= 7:
                 if board[r+1][c+1][0] == "w":
                     if not piece_pinned or pin_direction == (1, 1):
@@ -153,13 +158,13 @@ class PawnMovementStrategy(PieceMovementStrategy):
                             inside_range = range(king_col - 1, c+1, -1)
                             outside_range = range(c-1, -1, -1)
                         for i in inside_range:
-                            if board[r][i] != EMPTY_SQUARE:
+                            if board[r][i] != NULL_SQUARE:
                                 blocking_piece = True
                         for i in outside_range:
                             square = board[r][i]
                             if square[0] == 'w' and (square[1] == 'R' or square[1] == 'Q'):
                                 attacking_piece = True
-                            elif square != EMPTY_SQUARE:
+                            elif square != NULL_SQUARE:
                                 blocking_piece = True
                     if not attacking_piece or blocking_piece:
                         moves.append(Move((r, c), (r+1, c+1), board, is_enpassant_move=True))
@@ -168,25 +173,25 @@ class PawnMovementStrategy(PieceMovementStrategy):
 
 class RookMovementStrategy(PieceMovementStrategy):
     def get_moves(self, position: Position, board: ChessBoard, pins: List, is_white_turn: bool) -> List[Move]:
-        """Get all possible moves for a rook"""
+        """get all possible moves for a rook"""
         moves = []
         r, c = position.row, position.col
         
-        # Check if rook is pinned
+        # check if rook is pinned
         piece_pinned = False
         pin_direction = ()
         for i in range(len(pins) - 1, -1, -1):
             if pins[i][0] == r and pins[i][1] == c:
                 piece_pinned = True
                 pin_direction = (pins[i][2], pins[i][3])
-                if board[r][c][1] != 'Q':  # Don't remove pin if it's a queen
+                if board[r][c][1] != 'Q':  # Don't remove pin if it's a queen wahahahah :evil:
                     pins.remove(pins[i])
                 break
         
-        # Determine enemy color
+        # determine enemy color
         enemy_color = 'b' if is_white_turn else 'w'
         
-        # Check moves in all four straight directions
+        # check moves in all four straight directions
         for d in DIRECTIONS["straight"]:
             for i in range(1, 8):
                 end_row = r + d[0] * i
@@ -194,25 +199,25 @@ class RookMovementStrategy(PieceMovementStrategy):
                 if 0 <= end_row < 8 and 0 <= end_col < 8:
                     if not piece_pinned or pin_direction == d or pin_direction == (-d[0], -d[1]):
                         end_piece = board[end_row][end_col]
-                        if end_piece == EMPTY_SQUARE:
+                        if end_piece == NULL_SQUARE:
                             moves.append(Move((r, c), (end_row, end_col), board))
                         elif end_piece[0] == enemy_color:
                             moves.append(Move((r, c), (end_row, end_col), board))
                             break
-                        else:  # Friendly piece
+                        else:  # friendly piece
                             break
-                else:  # Off board
+                else:  # off board
                     break
         
         return moves
 
 class KnightMovementStrategy(PieceMovementStrategy):
     def get_moves(self, position: Position, board: ChessBoard, pins: List, is_white_turn: bool) -> List[Move]:
-        """Get all possible moves for a knight"""
+        """get all possible moves for a knight"""
         moves = []
         r, c = position.row, position.col
         
-        # Check if knight is pinned
+        # check if knight is pinned
         piece_pinned = False
         for i in range(len(pins) - 1, -1, -1):
             if pins[i][0] == r and pins[i][1] == c:
@@ -220,14 +225,14 @@ class KnightMovementStrategy(PieceMovementStrategy):
                 pins.remove(pins[i])
                 break
         
-        # Knights can't move if pinned
+        # Knights can't move if pinned (no WAyayayay)
         if piece_pinned:
             return moves
         
-        # Determine ally color
+        # determine ally color
         ally_color = 'w' if is_white_turn else 'b'
         
-        # Check all possible knight moves
+        # check all possible knight moves
         for d in DIRECTIONS["knight"]:
             end_row = r + d[0]
             end_col = c + d[1]
@@ -240,11 +245,11 @@ class KnightMovementStrategy(PieceMovementStrategy):
 
 class BishopMovementStrategy(PieceMovementStrategy):
     def get_moves(self, position: Position, board: ChessBoard, pins: List, is_white_turn: bool) -> List[Move]:
-        """Get all possible moves for a bishop"""
+        """get all possible moves for a bishop"""
         moves = []
         r, c = position.row, position.col
         
-        # Check if bishop is pinned
+        # check if bishop is pinned
         piece_pinned = False
         pin_direction = ()
         for i in range(len(pins) - 1, -1, -1):
@@ -254,10 +259,10 @@ class BishopMovementStrategy(PieceMovementStrategy):
                 pins.remove(pins[i])
                 break
         
-        # Determine enemy color
+        # determine enemy color
         enemy_color = 'b' if is_white_turn else 'w'
         
-        # Check moves in all four diagonal directions
+        # check moves in all four diagonal directions
         for d in DIRECTIONS["diagonal"]:
             for i in range(1, 8):
                 end_row = r + d[0] * i
@@ -265,24 +270,24 @@ class BishopMovementStrategy(PieceMovementStrategy):
                 if 0 <= end_row < 8 and 0 <= end_col < 8:
                     if not piece_pinned or pin_direction == d or pin_direction == (-d[0], -d[1]):
                         end_piece = board[end_row][end_col]
-                        if end_piece == EMPTY_SQUARE:
+                        if end_piece == NULL_SQUARE:
                             moves.append(Move((r, c), (end_row, end_col), board))
                         elif end_piece[0] == enemy_color:
                             moves.append(Move((r, c), (end_row, end_col), board))
                             break
-                        else:  # Friendly piece
+                        else:  # friendly piece
                             break
-                else:  # Off board
+                else:  # off board
                     break
         
         return moves
 
 class QueenMovementStrategy(PieceMovementStrategy):
     def get_moves(self, position: Position, board: ChessBoard, pins: List, is_white_turn: bool) -> List[Move]:
-        """Get all possible moves for a queen (combines rook and bishop moves)"""
+        """get all possible moves for a queen (combines rook and bishop moves)"""
         moves = []
         
-        # Use rook and bishop strategies to get queen moves
+        # use rook and bishop strategies to get queen moves
         rook_strategy = RookMovementStrategy()
         bishop_strategy = BishopMovementStrategy()
         
@@ -295,40 +300,41 @@ class KingMovementStrategy(PieceMovementStrategy):
     def get_moves(self, position: Position, board: ChessBoard, pins: List, is_white_turn: bool, 
                   white_king_position: Optional[Position] = None, black_king_position: Optional[Position] = None,
                   check_for_checks_func=None) -> List[Move]:
-        """Get all possible moves for a king"""
+        """get all possible moves for a king"""
         moves = []
         r, c = position.row, position.col
         
-        # Determine ally color
+        # determine ally color
         ally_color = 'w' if is_white_turn else 'b'
         
-        # Check all eight directions
+        # check all eight directions
         for d in DIRECTIONS["king"]:
             end_row = r + d[0]
             end_col = c + d[1]
             if 0 <= end_row < 8 and 0 <= end_col < 8:
                 end_piece = board[end_row][end_col]
-                if end_piece[0] != ally_color:  # Empty or enemy piece
-                    # If we have the check function, use it to verify move safety
+                if end_piece[0] != ally_color:  # empty or enemy piece
+                    # if we have the check function, use it to verify move safety
                     if check_for_checks_func:
-                        # Create temporary positions for checking
-                        temp_white_king_pos = Position(end_row, end_col) if is_white_turn else white_king_position
-                        temp_black_king_pos = Position(end_row, end_col) if not is_white_turn else black_king_position
+                        # create temporary positions for checking
+                        temp_white_king_pos = BoardCoordinate(end_row, end_col) if is_white_turn else white_king_position
+                        temp_black_king_pos = BoardCoordinate(end_row, end_col) if not is_white_turn else black_king_position
                         
-                        # Check if the move puts the king in check
+                        # check if the move puts the king in check
                         in_check, _, _ = check_for_checks_func(temp_white_king_pos, temp_black_king_pos)
                     
-                        # Add move if it doesn't put the king in check
+                        # add move if it doesn't put the king in check
                         if not in_check:
                             moves.append(Move((r, c), (end_row, end_col), board))
                     else:
-                        # If we don't have the check function, just add the move
+                        # if we don't have the check function, just add the move
                         # (the game state will filter unsafe moves later)
                         moves.append(Move((r, c), (end_row, end_col), board))
         
         return moves
 
-# Factory to create the appropriate movement strategy for each piece type
+# factory to create the appropriate movement strategy for each piece type
+# named it this cuz i heard theres a game called factorio and its 1am so why not
 class PieceMovementFactory:
     @staticmethod
     def create_movement_strategy(piece_type: str) -> PieceMovementStrategy:
