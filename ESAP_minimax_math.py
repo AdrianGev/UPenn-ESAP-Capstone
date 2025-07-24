@@ -318,8 +318,12 @@ def evaluate_position(game_state: Any) -> int:
     
     return total_score
 
+# Legacy function names for compatibility
 def findRandomMove(valid_moves):
     return select_random_move(valid_moves)
+
+def find_best_move_minimax(game_state, valid_moves):
+    return find_best_move(game_state, valid_moves)
 
 def findBestMoveMinimax(game_state, valid_moves):
     return find_best_move(game_state, valid_moves)
