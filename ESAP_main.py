@@ -3,11 +3,75 @@ import pygame as p
 import time
 import datetime
 
-# Import from new modular structure
-from ESAP_chess_core import Position, ChessBoard, EMPTY_SQUARE
+# Slider class for UI controls bc somehow JAVA SWING has built in sliders
+# but PYGAME DOESNT??
+class Slider:
+    def __init__(self, x, y, width, height, min_val, max_val, default_val, label, font):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.min_val = min_val
+        self.max_val = max_val
+        self.value = default_val
+        self.label = label
+        self.font = font
+        self.dragging = False
+        self.handle_radius = 10
+        self.handle_x = self.x + int((self.value - self.min_val) / (self.max_val - self.min_val) * self.width)
+    
+    def draw(self, screen):
+        label_text = self.font.render(f"{self.label}: {self.value}", True, p.Color("black"))
+        screen.blit(label_text, (self.x, self.y - 30))
+        
+        p.draw.rect(screen, p.Color("gray"), (self.x, self.y, self.width, self.height))
+        
+        p.draw.circle(screen, p.Color("blue"), (self.handle_x, self.y + self.height // 2), self.handle_radius)
+    
+    def handle_event(self, event):
+        if event.type == p.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_pos = p.mouse.get_pos()
+            if abs(mouse_pos[0] - self.handle_x) <= self.handle_radius * 2 and \
+               abs(mouse_pos[1] - (self.y + self.height // 2)) <= self.handle_radius * 2:
+                self.dragging = True
+        
+        elif event.type == p.MOUSEBUTTONUP and event.button == 1:
+            self.dragging = False
+        
+        elif event.type == p.MOUSEMOTION and self.dragging:
+            mouse_x = event.pos[0]
+            # Constrain to slider bounds cuz like no duh
+            if mouse_x < self.x:
+                mouse_x = self.x
+            elif mouse_x > self.x + self.width:
+                mouse_x = self.x + self.width
+            
+            self.handle_x = mouse_x
+            # Calculate value based on position
+            value_range = self.max_val - self.min_val
+            position_ratio = (self.handle_x - self.x) / self.width
+            self.value = round(self.min_val + position_ratio * value_range)
+
+from ESAP_chess_core import BoardCoordinate, ChessMatrix, NULL_SQUARE
 from ESAP_chess_moves import Move
 from ESAP_chess_game import GameState
 import ESAP_minimax_math
+
+# piece name mapping for display
+reverse_piece_mapping = {
+    "wp": "White Pawn",
+    "wR": "White Rook",
+    "wN": "White Knight",
+    "wB": "White Bishop",
+    "wQ": "White Queen",
+    "wK": "White King",
+    "bp": "Black Pawn",
+    "bR": "Black Rook",
+    "bN": "Black Knight",
+    "bB": "Black Bishop",
+    "bQ": "Black Queen",
+    "bK": "Black King"
+}
 
 
 window_width = 512
@@ -20,14 +84,14 @@ IMAGES = {}
 def load_images():
     global PIECE_MAPPING
     PIECE_MAPPING = {
-        # White pieces
+        # white p
         "white_pawn": "wp",
         "white_rook": "wR",
         "white_knight": "wN",
         "white_bishop": "wB",
         "white_queen": "wQ",
         "white_king": "wK",
-        # Black pieces
+        # black p
         "black_pawn": "bp",
         "black_rook": "bR",
         "black_knight": "bN",
@@ -54,7 +118,7 @@ def print_board(board):
             if piece_code == "--":
                 print("   |" , end = "")
             else:
-                # Convert piece code to display format
+                # convert piece code to display format
                 display_char = get_display_char(piece_code)
                 print(f" {display_char} |" , end = "")
         print("\n  " + "-" * 33)
@@ -66,16 +130,16 @@ def main():
     p.display.set_caption("Out-Of-Stock-Fish Chess Engine")
     clock = p.time.Clock()
     screen.fill(p.Color("white"))
-    gs = GameState()
-    validMoves = gs.get_valid_moves()
-    moveMade = False
-    gameOver = False
-    gameOverMessageShown = False
-    playerOne = True   
-    playerTwo = False
+    game_state = GameState()
+    valid_moves = game_state.get_valid_moves()
+    move_made = False
+    game_over = False
+    game_over_message_shown = False
+    player_one = True   
+    player_two = False
     load_images()
-    sqSelected = ()
-    playerClicks = []
+    square_selected = ()
+    player_clicks = []
     game_start_time = time.time()
     move_count = 0
     white_move_times = []
@@ -92,43 +156,43 @@ def main():
     print("  E: You play White, Computer plays Black")
     print("="*50 + "\n")
     print("INITIAL BOARD STATE:")
-    print_board(gs.board)
+    print_board(game_state.board)
     print("\nGame started! White to move.\n" + "-"*50)
 
     running = True
     while running:
-        humanTurn = (gs.white_to_move and playerOne) or (not gs.white_to_move and playerTwo)
+        human_turn = (game_state.white_to_move and player_one) or (not game_state.white_to_move and player_two)
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
             elif e.type == p.MOUSEBUTTONDOWN:
-                if not gameOver and humanTurn:
+                if not game_over and human_turn:
                     location = p.mouse.get_pos()
                     col = location[0]//SQ_SIZE
                     row = location[1]//SQ_SIZE
-                    if sqSelected == (row, col) or col >= 8:
-                        sqSelected = ()
-                        playerClicks = []
+                    if square_selected == (row, col) or col >= 8:
+                        square_selected = ()
+                        player_clicks = []
                     else:
-                        sqSelected = (row, col)
-                        playerClicks.append(sqSelected)
-                    if len(playerClicks) == 2:
-                        start_pos = Position(playerClicks[0][0], playerClicks[0][1])
-                        end_pos = Position(playerClicks[1][0], playerClicks[1][1])
-                        move = Move(start_pos, end_pos, gs.board)
-                        if move in validMoves:
-                            move = validMoves[validMoves.index(move)]
+                        square_selected = (row, col)
+                        player_clicks.append(square_selected)
+                    if len(player_clicks) == 2:
+                        start_pos = BoardCoordinate(player_clicks[0][0], player_clicks[0][1])
+                        end_pos = BoardCoordinate(player_clicks[1][0], player_clicks[1][1])
+                        move = Move(start_pos, end_pos, game_state.board)
+                        if move in valid_moves:
+                            move = valid_moves[valid_moves.index(move)]
                             move_start_time = time.time()
                             move_time = move_start_time - last_move_time
                             last_move_time = move_start_time
                             
-                            gs.make_move(move)
-                            moveMade = True
-                            sqSelected = ()
-                            playerClicks = []
+                            game_state.make_move(move)
+                            move_made = True
+                            square_selected = ()
+                            player_clicks = []
                             
                             move_count += 1
-                            if gs.white_to_move:
+                            if game_state.white_to_move:
                                 black_move_times.append(move_time)
                                 player = "Black"
                             else:
@@ -136,57 +200,57 @@ def main():
                                 player = "White"
                                 
                             print(f"\nMove #{move_count}: {player} played {move.get_chess_notation()}")
-                            print(f"Piece moved: {REVERSE_PIECE_MAPPING.get(move.piece_moved, move.piece_moved)}, Captured: {REVERSE_PIECE_MAPPING.get(move.piece_captured, 'None') if move.piece_captured != EMPTY_SQUARE else 'None'}")
+                            print(f"Piece moved: {REVERSE_PIECE_MAPPING.get(move.piece_moved, move.piece_moved)}, Captured: {REVERSE_PIECE_MAPPING.get(move.piece_captured, 'None') if move.piece_captured != NULL_SQUARE else 'None'}")
                             print(f"Move time: {move_time:.2f} seconds")
                             
                             # Check for special moves
                             if move.is_pawn_promotion:
                                 print("Pawn promoted to Queen!")
                             if move.is_castle_move:
-                                print("Castling move!")
+                                print("Castles")
                             if move.is_enpassant_move:
-                                print("En passant capture!")
+                                print("En passant (crossaint) capture!")
                                 
-                            # Print updated board
+                            # print updated board
                             print("\nCurrent board state:")
-                            print_board(gs.board)
+                            print_board(game_state.board)
                             
-                            # Print game status
-                            if gs.in_check:
-                                print(f"\n{'White' if gs.white_to_move else 'Black'} is in CHECK!")
-                            print_move_log(gs.move_log)
-                            print(f"{'White' if gs.white_to_move else 'Black'} to move.\n" + "-"*50)
+                            # print game status
+                            if game_state.in_check:
+                                print(f"\n{'White' if game_state.white_to_move else 'Black'} is in CHECK!")
+                            print_move_log(game_state.move_log)
+                            print(f"{'White' if game_state.white_to_move else 'Black'} to move.\n" + "-"*50)
                         else:
-                            playerClicks = [sqSelected]
+                            player_clicks = [square_selected]
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z:
-                    gs.undo_move()
-                    moveMade = True
-                    gameOver = False
-                    playerOne = True
-                    playerTwo = True
+                    game_state.undo_move()
+                    move_made = True
+                    game_over = False
+                    player_one = True
+                    player_two = True
                 elif e.key == p.K_r:
                     gs = GameState()
-                    validMoves = gs.get_valid_moves()
-                    moveMade = False
+                    valid_moves = game_state.get_valid_moves()
+                    move_made = False
                     animate = False
-                    gameOver = False
-                    playerOne = True
-                    playerTwo = True
-                    sqSelected = ()
-                    playerClicks = []
+                    game_over = False
+                    player_one = True
+                    player_two = True
+                    square_selected = ()
+                    player_clicks = []
                 elif e.key == p.K_q:
-                    playerOne = False
-                    playerTwo = True
+                    player_one = False
+                    player_two = True
                 elif e.key == p.K_e:
-                    playerOne = True
-                    playerTwo = False
+                    player_one = True
+                    player_two = False
 
-        if moveMade:
-            validMoves = gs.get_valid_moves()
-            moveMade = False
+        if move_made:
+            valid_moves = game_state.get_valid_moves()
+            move_made = False
             
-            # Print game statistics after each move
+            #print game statistics after each move (this can be turned into csv data later on)
             white_avg = sum(white_move_times) / len(white_move_times) if white_move_times else 0
             black_avg = sum(black_move_times) / len(black_move_times) if black_move_times else 0
             elapsed = time.time() - game_start_time
@@ -195,12 +259,12 @@ def main():
             print(f"Average move times - White: {white_avg:.2f}s | Black: {black_avg:.2f}s")
 
         ''' Bot move finder '''
-        if not gameOver and not humanTurn:
+        if not game_over and not human_turn:
             print("\nBot is thinking...")
             ai_start_time = time.time()
-            BotMove = ESAP_minimax_math.find_best_move(gs, validMoves)
-            if BotMove is None:   #when begin the game
-                BotMove = ESAP_minimax_math.select_random_move(validMoves)
+            bot_move = ESAP_minimax_math.findBestMoveMinimax(game_state, valid_moves)
+            if bot_move is None:   #when begin the game
+                bot_move = ESAP_minimax_math.select_random_move(valid_moves)
                 print("Bot is using random move selection for opening")
             else:
                 print(f"Bot evaluated position and found best move in {time.time() - ai_start_time:.2f} seconds")
@@ -209,109 +273,146 @@ def main():
             move_time = move_start_time - last_move_time
             last_move_time = move_start_time
             
-            gs.make_move(BotMove)
-            moveMade = True
+            game_state.make_move(bot_move)
+            move_made = True
             animate = True
             
             move_count += 1
-            if gs.white_to_move:
+            if game_state.white_to_move:
                 black_move_times.append(move_time)
                 player = "Black (Bot)"
             else:
                 white_move_times.append(move_time)
                 player = "White (Bot)"
                 
-            print(f"\nMove #{move_count}: {player} played {BotMove.get_chess_notation()}")
-            print(f"Piece moved: {REVERSE_PIECE_MAPPING.get(BotMove.piece_moved, BotMove.piece_moved)}, Captured: {REVERSE_PIECE_MAPPING.get(BotMove.piece_captured, 'None') if BotMove.piece_captured != EMPTY_SQUARE else 'None'}")
+            print(f"\nMove #{move_count}: {player} played {bot_move.get_chess_notation()}")
+            print(f"Piece moved: {reverse_piece_mapping.get(bot_move.piece_moved, bot_move.piece_moved)}, Captured: {reverse_piece_mapping.get(bot_move.piece_captured, 'None') if bot_move.piece_captured != NULL_SQUARE else 'None'}")
             
-            # Check for special moves
-            if BotMove.is_pawn_promotion:
+            # check for en crossaint and pawns becoming cooler and castling
+            if bot_move.is_pawn_promotion:
                 print("Pawn -> Queen")
-            if BotMove.is_castle_move:
+            if bot_move.is_castle_move:
                 print("Castles")
-            if BotMove.is_enpassant_move:
+            if bot_move.is_enpassant_move:
                 print("En passant capture")
                 
-            # Print updated board
+            # print updated board
             print("\nCurrent board state:")
-            print_board(gs.board)
+            print_board(game_state.board)
             
-            # Print game status
-            if gs.in_check:
-                print(f"\n{'White' if gs.white_to_move else 'Black'} is in CHECK!")
-            print_move_log(gs.move_log)
-            print(f"{'White' if gs.white_to_move else 'Black'} to move.\n" + "-"*50)
+            # print game status
+            if game_state.in_check:
+                print(f"\n{'White' if game_state.white_to_move else 'Black'} is in CHECK!")
+            print_move_log(game_state.move_log)
+            print(f"{'White' if game_state.white_to_move else 'Black'} to move.\n" + "-"*50)
 
 
-        # Calculate game duration for statistics (used in both game over and normal states)
+        # calculate game duration for statistics (used in both game over and normal states)
         game_duration = time.time() - game_start_time
         
-        # Check for game over conditions BEFORE drawing the game state
-        # This ensures the game over state is detected immediately after a move
-        if gs.checkmate or gs.stalemate or gs.threefold_repetition or gs.insufficient_material:
-            gameOver = True
+        # check for game over conditions BEFORE drawing the game state
+        # this ensures the game over state is detected immediately after a move
+        # took me 45 minutes to figure this out argh
+        if game_state.checkmate or game_state.stalemate or game_state.threefold_repetition or game_state.insufficient_material:
+            game_over = True
             
-            # Draw the final game state first
-            drawGameState(screen, gs, validMoves, sqSelected)
+            # draw the final game state first
+            draw_game_state(screen, game_state, valid_moves, square_selected)
             
-            # Then display the appropriate end game message - but only once
-            if not gameOverMessageShown:
-                if gs.stalemate:
-                    drawEndGameText(screen, "DRAW")
+            # then display the appropriate end game message - but only once
+            if not game_over_message_shown:
+                # create a transparent overlay cuz it looks cool
+                overlay = p.Surface((window_width, window_height), p.SRCALPHA)
+                overlay.fill((255, 255, 255, 128))  # semi -transparent white
+                screen.blit(overlay, (0, 0))
+                
+                # show da msg
+                if game_state.stalemate:
+                    message = "Draw by Stalemate"
                     print("\n" + "*"*50)
                     print("GAME OVER: STALEMATE - DRAW")
                     print("*"*50)
-                elif gs.threefold_repetition:
-                    drawEndGameText(screen, "DRAW")
+                elif game_state.threefold_repetition:
+                    message = "Draw by Threefold Repetition"
                     print("\n" + "*"*50)
                     print("GAME OVER: THREEFOLD REPETITION - DRAW")
                     print("*"*50)
-                elif gs.insufficient_material:
-                    drawEndGameText(screen, "DRAW")
+                elif game_state.insufficient_material:
+                    message = "Draw by Insufficient Material"
                     print("\n" + "*"*50)
                     print("GAME OVER: INSUFFICIENT MATERIAL - DRAW")
                     print("*"*50)
                 else:  # It's checkmate
                     # The player whose turn it is has lost (they have no legal moves and are in check)
-                    if gs.white_to_move:  # White has no moves and is in check
-                        drawEndGameText(screen, "BLACK WIN")
+                    if game_state.white_to_move:  # White has no moves and is in check
+                        message = "Black Wins by Checkmate!"
                         print("\n" + "*"*50)
                         print("GAME OVER: CHECKMATE - BLACK WINS!")
                         print("*"*50)
                     else:  # Black has no moves and is in check
-                        drawEndGameText(screen, "WHITE WIN")
+                        message = "White Wins by Checkmate!"
                         print("\n" + "*"*50)
                         print("GAME OVER: CHECKMATE - WHITE WINS!")
                         print("*"*50)
+                
+                # Draw the message with a more visible approach
+                draw_end_game_text(screen, message)
                 
                 # Print final game statistics
                 print(f"\nFinal Game Statistics:")
                 print(f"Total moves: {move_count}")
                 
                 # Set the flag so we don't show the message again
-                gameOverMessageShown = True
+                game_over_message_shown = True
             
             # Force a display update to show the end game state immediately
             p.display.flip()
+            
+            # When game is over, wait for user to close the window
+            if game_over and game_over_message_shown:
+                waiting_for_close = True
+                while waiting_for_close:
+                    for e in p.event.get():
+                        if e.type == p.QUIT:
+                            waiting_for_close = False
+                            running = False  # Exit the main game loop
+                        elif e.type == p.KEYDOWN:
+                            if e.key == p.K_ESCAPE:
+                                waiting_for_close = False
+                                running = False  # Exit the main game loop
+                    
+                    # Keep displaying the end game message
+                    p.display.flip()
+                    clock.tick(15)  # Lower frame rate while waiting
         else:
             # Normal game state drawing if the game is not over
-            drawGameState(screen, gs, validMoves, sqSelected)
+            draw_game_state(screen, game_state, valid_moves, square_selected)
 
 
         clock.tick(MAX_FPS)
         p.display.flip()
 
-def highlightMove(screen, gs, validMoves, sqSelected):
+def draw_end_game_text(screen, text):
+    """Draw end game message with specific reason"""
+    font = p.font.SysFont("Arial", 32, True, False)
+    text_object = font.render(text, True, p.Color("red"))
+    text_location = p.Rect(0, 0, window_width, window_height).move(
+        window_width/2 - text_object.get_width()/2, window_height/2 - text_object.get_height()/2)
+    screen.blit(text_object, text_location)
+    # Force immediate display update
+    p.display.flip()
+
+def highlight_move(screen, game_state, valid_moves, square_selected):
     sq = p.Surface((SQ_SIZE, SQ_SIZE))
     sq.set_alpha(100)
-    if sqSelected != ():
-        r, c = sqSelected
-        if gs.board[r][c][0] == ('w' if gs.white_to_move else 'b'): #sqSelected is a piece that can be moved
+    if square_selected != ():
+        r, c = square_selected
+        if game_state.board[r][c][0] == ('w' if game_state.white_to_move else 'b'): #square_selected is a piece that can be moved
             #highlight selected square
             sq.fill(p.Color("blue"))
             screen.blit(sq, (c * SQ_SIZE, r * SQ_SIZE))
             #draw dots for valid moves
-            for move in validMoves:
+            for move in valid_moves:
                 if move.start_row == r and move.start_col == c:
                     # Calculate center position for the dot
                     center_x = move.end_col * SQ_SIZE + SQ_SIZE // 2
@@ -320,49 +421,43 @@ def highlightMove(screen, gs, validMoves, sqSelected):
                     dot_radius = SQ_SIZE // 4
                     p.draw.circle(screen, p.Color("red"), (center_x, center_y), dot_radius)
 
-    if gs.in_check:
-        if gs.white_to_move:
+    if game_state.in_check:
+        if game_state.white_to_move:
             sq.fill(p.Color("red"))
-            screen.blit(sq, (gs.white_king_position.col * SQ_SIZE, gs.white_king_position.row * SQ_SIZE))
+            screen.blit(sq, (game_state.white_king_position.col * SQ_SIZE, game_state.white_king_position.row * SQ_SIZE))
         else:
             sq.fill(p.Color("red"))
-            screen.blit(sq, (gs.black_king_position.col * SQ_SIZE, gs.black_king_position.row * SQ_SIZE))
+            screen.blit(sq, (game_state.black_king_position.col * SQ_SIZE, game_state.black_king_position.row * SQ_SIZE))
     
-    if len(gs.move_log) != 0:
+    if len(game_state.move_log) != 0:
         sq.fill(p.Color("yellow"))
-        screen.blit(sq, (gs.move_log[-1].start_col * SQ_SIZE, gs.move_log[-1].start_row * SQ_SIZE))
-        screen.blit(sq, (gs.move_log[-1].end_col * SQ_SIZE, gs.move_log[-1].end_row * SQ_SIZE))
+        screen.blit(sq, (game_state.move_log[-1].start_col * SQ_SIZE, game_state.move_log[-1].start_row * SQ_SIZE))
+        screen.blit(sq, (game_state.move_log[-1].end_col * SQ_SIZE, game_state.move_log[-1].end_row * SQ_SIZE))
 
 
 # Animation function removed as per user request
 
-def drawGameState(screen, gs, validMoves, sqSelected):
-    drawBoard(screen)
-    highlightMove(screen, gs, validMoves, sqSelected)
-    drawPieces(screen, gs.board)
+def draw_game_state(screen, game_state, valid_moves, square_selected):
+    draw_board(screen)
+    highlight_move(screen, game_state, valid_moves, square_selected)
+    draw_pieces(screen, game_state.board)
     # Move log is now displayed in terminal instead of side panel
 
-def drawBoard(screen):
+def draw_board(screen):
     colors = [p.Color("white"), p.Color("light blue")]
     for r in range(DIMENSION):
         for c in range(DIMENSION):
             color = colors[((r + c) % 2)]
             p.draw.rect(screen, color, p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
-def drawPieces(screen, board):
+def draw_pieces(screen, board):
     for row in range(DIMENSION):
         for col in range(DIMENSION):
             piece = board[row][col]
             if piece != "--":
                 screen.blit(IMAGES[piece], p.Rect(col*SQ_SIZE, row*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
-def drawEndGameText(screen, text):
-    font = p.font.SysFont("Verdana", 32, True, False)
-    textObject = font.render(text, False, p.Color("black"))
-    textLocation = p.Rect(0, 0, window_width, window_height).move(window_width/2 - textObject.get_width()/2, window_height/2 - textObject.get_height()/2)
-    screen.blit(textObject, textLocation)
-    textObject = font.render(text, False, p.Color("red"))
-    screen.blit(textObject, textLocation.move(2, 2))
+# This function is now defined earlier in the file
 
 
 def print_board(board):
@@ -427,7 +522,7 @@ def get_display_char(piece_code):
     
     return display_char
 
-class Slider:
+class slider:
     def __init__(self, x, y, width, height, min_val, max_val, default_val, label, font):
         self.rect = p.Rect(x, y, width, height)
         self.min_val = min_val
@@ -552,7 +647,7 @@ def get_simulation_parameters():
     window_width = 512
     board_height = 512
     progress_height = 200  # Data section height
-    window_height = board_height + progress_height
+    window_height = board_height + progress_height  # Total window height
     screen = p.display.set_mode((window_width, window_height))
     p.display.set_caption("Out-Of-Stock-Fish: Data Mode")
     
@@ -621,7 +716,7 @@ def run_data_mode(white_depth, black_depth, num_games):
     # Initialize pygame with adjusted window height for progress display
     p.init()
     board_height = 512  # Standard board height
-    progress_height = 200  # Increased height for progress display
+    progress_height = 200
     window_height = board_height + progress_height  # Total window height
     screen = p.display.set_mode((window_width, window_height))
     p.display.set_caption("Out-Of-Stock-Fish Chess Engine - Data Mode")
@@ -667,7 +762,7 @@ def run_data_mode(white_depth, black_depth, num_games):
                     bot_move = ESAP_minimax_math.select_random_move(valid_moves)
                 else:
                     ESAP_minimax_math.SEARCH_DEPTH = white_depth
-                    bot_move = ESAP_minimax_math.find_best_move(gs, valid_moves)
+                    bot_move = ESAP_minimax_math.find_best_move_minimax(gs, valid_moves)
                     if bot_move is None:
                         bot_move = ESAP_minimax_math.select_random_move(valid_moves)
                 player = "White"
@@ -677,7 +772,7 @@ def run_data_mode(white_depth, black_depth, num_games):
                     bot_move = ESAP_minimax_math.select_random_move(valid_moves)
                 else:
                     ESAP_minimax_math.SEARCH_DEPTH = black_depth
-                    bot_move = ESAP_minimax_math.find_best_move(gs, valid_moves)
+                    bot_move = ESAP_minimax_math.find_best_move_minimax(gs, valid_moves)
                     if bot_move is None:
                         bot_move = ESAP_minimax_math.select_random_move(valid_moves)
                 player = "Black"
@@ -722,7 +817,7 @@ def run_data_mode(white_depth, black_depth, num_games):
                 print(f"Game {game_num} completed in {game_duration:.2f} seconds ({move_count} moves)")
                 print(f"Result: {result}")
             
-            # Process events to keep the window responsive
+            # Process events to keep the window responsive (oopsie daisy)
             for e in p.event.get():
                 if e.type == p.QUIT:
                     return
@@ -737,7 +832,7 @@ def run_data_mode(white_depth, black_depth, num_games):
             
             # Estimate remaining moves and time
             remaining_games = num_games - game_num
-            remaining_moves_current_game = 50 - move_count  # Assume average game is 50 moves
+            remaining_moves_current_game = 50 - move_count  # Assume average game is 50 moves (just an estimate)
             if remaining_moves_current_game < 0:
                 remaining_moves_current_game = 0
             estimated_remaining_moves = remaining_moves_current_game + (remaining_games * avg_game_moves)
@@ -749,7 +844,7 @@ def run_data_mode(white_depth, black_depth, num_games):
             time_remaining_str = f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
             
             # Update display with progress info
-            drawGameState(screen, gs, valid_moves, ())
+            draw_game_state(screen, gs, valid_moves, ())
             
             # Draw progress overlay at the bottom of the board (not overlapping the board)
             board_height = 512  # Standard board height
