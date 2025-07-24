@@ -94,67 +94,55 @@ class AI:
         idx = random.randrange(0, len(empty_squares))
         return empty_squares[idx]  # (row, col)
     
-    def minimax(self, board, maximizing):
+    def minimax(self, board, maximizing, depth=0):
         # Terminal case - check if game is over
         case = board.final_state()
-        
-        # Player 1 wins
         if case == 1:
-            return -1, None  # Score, move
-        
-        # Player 2 (AI) wins
+            return -1, None, depth
         if case == 2:
-            return 1, None
-        
-        # Draw
+            return 1, None, depth
         if case == 0:
-            return 0, None
-        
+            return 0, None, depth
+
         if maximizing:
             max_eval = -math.inf
             best_move = None
+            max_depth = depth  # track deepest depth from all branches
             empty_squares = board.get_empty_squares()
-            
+
             for (row, col) in empty_squares:
-                # Try this move for the AI
                 board.mark_square(row, col, self.player)
-                
-                # Calculate evaluation for this move
-                eval, _ = self.minimax(board, False)
-                
-                # Undo move
+                eval, _, d = self.minimax(board, False, depth + 1)
                 board.squares[row][col] = None
                 board.marked_squares -= 1
-                
-                # Update max evaluation and best move
+
                 if eval > max_eval:
                     max_eval = eval
                     best_move = (row, col)
-            
-            return max_eval, best_move
-        
-        else:  # Minimizing player - Human
+
+                max_depth = max(max_depth, d)
+
+            return max_eval, best_move, max_depth
+
+        else:
             min_eval = math.inf
             best_move = None
+            max_depth = depth
             empty_squares = board.get_empty_squares()
-            
+
             for (row, col) in empty_squares:
-                # Try this move for the human
-                board.mark_square(row, col, 1)  # Human is player 1
-                
-                # Calculate evaluation for this move
-                eval, _ = self.minimax(board, True)
-                
-                # Undo move
+                board.mark_square(row, col, 1)
+                eval, _, d = self.minimax(board, True, depth + 1)
                 board.squares[row][col] = None
                 board.marked_squares -= 1
-                
-                # Update min evaluation and best move
+
                 if eval < min_eval:
                     min_eval = eval
                     best_move = (row, col)
-            
-            return min_eval, best_move
+
+                max_depth = max(max_depth, d)
+
+            return min_eval, best_move, max_depth
     
     def eval(self, board):
         if self.level == 0:  # Random AI
@@ -163,8 +151,9 @@ class AI:
             return move
         else:  # Minimax AI
             # Minimax algorithm
-            eval, move = self.minimax(board, True)
-            return move  # (row, col)
+            eval_score, move, depth = self.minimax(board, True)
+            print("Maximum depth reached in minimax:", depth)
+            return move
 
 class Game:
     def __init__(self):

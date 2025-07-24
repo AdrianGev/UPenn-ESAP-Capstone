@@ -36,7 +36,7 @@ class game:
     return state
 
   def start(self):
-    state = random.randint(1, 50)
+    state = random.randint(15, 50)
     while self.isEnd(state) == False:
 
       if self.p1turn:
