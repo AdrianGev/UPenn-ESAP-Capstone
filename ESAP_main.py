@@ -343,16 +343,43 @@ def main():
                     print("GAME OVER: INSUFFICIENT MATERIAL - DRAW")
                     print("*"*50)
                 else:  # It's checkmate
-                    # The player whose turn it is has lost (they have no legal moves and are in check)
-                    if game_state.white_to_move:  # White has no moves and is in check
-                        message = "Black Wins by Checkmate!"
+                    # Check if the king is actually in check before declaring checkmate
+                    in_check = False
+                    king_pos = game_state.white_king_position if game_state.white_to_move else game_state.black_king_position
+                    
+                    # Check if the king is under attack (in check)
+                    opponent_color = 'b' if game_state.white_to_move else 'w'
+                    for r in range(8):
+                        for c in range(8):
+                            piece = game_state.board[r][c]
+                            if piece != NULL_SQUARE and piece[0] == opponent_color:
+                                # Get all possible moves for this opponent piece
+                                piece_type = piece[1]
+                                if piece_type in game_state.move_functions:
+                                    temp_moves = []
+                                    game_state.move_functions[piece_type](r, c, temp_moves)
+                                    # Check if any move can capture the king
+                                    for move in temp_moves:
+                                        if move.end_row == king_pos.row and move.end_col == king_pos.col:
+                                            in_check = True
+                                            break
+                    
+                    # Only declare checkmate if the king is actually in check
+                    if in_check:
+                        if game_state.white_to_move:  # White has no moves and is in check
+                            message = "Black Wins by Checkmate!"
+                            print("\n" + "*"*50)
+                            print("GAME OVER: CHECKMATE - BLACK WINS!")
+                            print("*"*50)
+                        else:  # Black has no moves and is in check
+                            message = "White Wins by Checkmate!"
+                            print("\n" + "*"*50)
+                            print("GAME OVER: CHECKMATE - WHITE WINS!")
+                            print("*"*50)
+                    else:  # No legal moves but not in check = stalemate
+                        message = "Game Drawn by Stalemate!"
                         print("\n" + "*"*50)
-                        print("GAME OVER: CHECKMATE - BLACK WINS!")
-                        print("*"*50)
-                    else:  # Black has no moves and is in check
-                        message = "White Wins by Checkmate!"
-                        print("\n" + "*"*50)
-                        print("GAME OVER: CHECKMATE - WHITE WINS!")
+                        print("GAME OVER: STALEMATE - DRAW!")
                         print("*"*50)
                 
                 # Draw the message with a more visible approach
